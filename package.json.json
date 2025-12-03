@@ -1,0 +1,18 @@
+{
+  "name": "restaurant-pos-system",
+  "version": "1.0.0",
+  "description": "Restaurant POS System with Table and Menu Management",
+  "homepage": ".",
+  "scripts": {
+    "dev": "serve -s .",
+    "build": "echo 'No build step required'"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "lucide-react": "^0.344.0"
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}
