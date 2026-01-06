@@ -1,37 +1,1392 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Restaurant POS System - Table Management and Order System"
-    />
-    <title>Restaurant POS System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant POS</title>
+  <!-- Add Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .nav {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .nav button {
+      padding: 12px 24px;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.2s;
+    }
+
+    .nav button:hover {
+      background: #0056b3;
+    }
+
+    .nav button.active {
+      background: #28a745;
+    }
+
+    .content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      min-height: 500px;
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .card {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      border: 2px solid #e9ecef;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .card:hover {
+      border-color: #007bff;
+      transform: translateY(-2px);
+    }
+
+    .card.occupied {
+      background: #fff3cd;
+      border-color: #ffc107;
+    }
+
+    .card h3 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    .card p {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      overflow-y: auto;
+    }
+
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      margin: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0056b3;
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .menu-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .menu-item-info h4 {
+      margin-bottom: 5px;
+    }
+
+    .menu-item-price {
+      font-weight: bold;
+      color: #28a745;
+    }
+
+    .order-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .order-summary {
+      margin-top: 20px;
+      padding: 20px;
+      background: #e9ecef;
+      border-radius: 8px;
+    }
+
+    .order-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #007bff;
+      margin-bottom: 15px;
+    }
+
+    .order-card.processing {
+      border-left-color: #ffc107;
+    }
+
+    .order-card.ready {
+      border-left-color: #28a745;
+    }
+
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .status-badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-badge.new {
+      background: #007bff;
+      color: white;
+    }
+
+    .status-badge.processing {
+      background: #ffc107;
+      color: #333;
+    }
+
+    .status-badge.ready {
+      background: #28a745;
+      color: white;
+    }
+
+    .sync-indicator {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background: #28a745;
+      color: white;
+      border-radius: 20px;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sync-indicator.syncing {
+      background: #ffc107;
+    }
+
+    .sync-indicator.error {
+      background: #dc3545;
+    }
+
+    .sync-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: white;
+    }
+
+    .sync-dot.pulsing {
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    .sync-controls {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      display: flex;
+      gap: 10px;
+      flex-direction: column;
+    }
+
+    .sync-controls button {
+      padding: 8px 16px;
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .sync-controls button:hover {
+      background: #545b62;
+    }
+
+    .device-id {
+      font-size: 12px;
+      color: #666;
+      margin-top: 10px;
+    }
+
+    .offline-badge {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 8px 16px;
+      background: #ffc107;
+      color: #333;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       }
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-          sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
+      
+      .modal-content {
+        padding: 20px;
       }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide-react@latest"></script>
-    <script type="text/babel" src="app.jsx"></script>
-  </body>
+      
+      .sync-controls {
+        bottom: 60px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="offline-badge" id="offlineBadge" style="display: none;">Offline Mode</div>
+  
+  <div class="container">
+    <div class="header">
+      <h1 style="margin-bottom: 20px;">Restaurant POS</h1>
+      <div class="nav">
+        <button onclick="showSection('tables')" class="active" id="nav-tables">Tables</button>
+        <button onclick="showSection('menu')" id="nav-menu">Menu</button>
+        <button onclick="showSection('kitchen')" id="nav-kitchen">Kitchen</button>
+        <button onclick="showSection('settings')" id="nav-settings">Settings</button>
+        <button onclick="showSection('sync')" id="nav-sync">Sync</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Tables Section -->
+      <div id="tables" class="section active">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2>Tables</h2>
+          <button class="btn btn-primary" onclick="showAddTableModal()">Add Table</button>
+        </div>
+        <div id="tablesGrid" class="grid"></div>
+      </div>
+
+      <!-- Menu Section -->
+      <div id="menu" class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2>Menu Items</h2>
+          <button class="btn btn-primary" onclick="showAddMenuModal()">Add Item</button>
+        </div>
+        <div id="menuList"></div>
+      </div>
+
+      <!-- Kitchen Section -->
+      <div id="kitchen" class="section">
+        <h2 style="margin-bottom: 20px;">Kitchen Display</h2>
+        <div id="kitchenOrders"></div>
+      </div>
+
+      <!-- Settings Section -->
+      <div id="settings" class="section">
+        <h2 style="margin-bottom: 20px;">Settings</h2>
+        <div class="form-group">
+          <label>Restaurant Name</label>
+          <input type="text" id="restaurantName" placeholder="Enter restaurant name">
+        </div>
+        <div class="form-group">
+          <label>Tax Rate (%)</label>
+          <input type="number" id="taxRate" step="0.1" placeholder="Enter tax rate">
+        </div>
+        <div class="form-group">
+          <label>Firebase Config (JSON)</label>
+          <textarea id="firebaseConfig" rows="6" placeholder='{
+  "apiKey": "your-api-key",
+  "authDomain": "your-auth-domain",
+  "projectId": "your-project-id",
+  "storageBucket": "your-storage-bucket",
+  "messagingSenderId": "your-sender-id",
+  "appId": "your-app-id"
+}'></textarea>
+        </div>
+        <button class="btn btn-success" onclick="saveSettings()">Save Settings</button>
+      </div>
+
+      <!-- Sync Section -->
+      <div id="sync" class="section">
+        <h2 style="margin-bottom: 20px;">Data Sync</h2>
+        <div class="form-group">
+          <label>Device ID</label>
+          <input type="text" id="deviceIdDisplay" readonly>
+        </div>
+        <div class="form-group">
+          <label>Sync Status</label>
+          <div id="syncStatus">Checking...</div>
+        </div>
+        <div class="form-group">
+          <label>Last Sync</label>
+          <div id="lastSync">Never</div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="manualSync()">Sync Now</button>
+          <button class="btn btn-secondary" onclick="exportData()">Export Data</button>
+          <button class="btn btn-secondary" onclick="importData()">Import Data</button>
+        </div>
+        <div style="margin-top: 30px;">
+          <h3>Firebase Sync Status</h3>
+          <div id="firebaseStatus" style="padding: 10px; background: #f8f9fa; border-radius: 6px; margin-top: 10px;">
+            Not configured
+          </div>
+          <div class="btn-group" style="margin-top: 15px;">
+            <button class="btn btn-success" onclick="initFirebase()">Initialize Firebase</button>
+            <button class="btn btn-danger" onclick="clearFirebase()">Clear Firebase Data</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Table Modal -->
+  <div id="tableModal" class="modal">
+    <div class="modal-content">
+      <h2 id="tableModalTitle">Add Table</h2>
+      <div class="form-group">
+        <label>Table Number</label>
+        <input type="text" id="tableNumber" placeholder="e.g., T1, Table 1">
+      </div>
+      <div class="form-group">
+        <label>Capacity</label>
+        <input type="number" id="tableCapacity" placeholder="Number of seats">
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="saveTable()">Save</button>
+        <button class="btn btn-secondary" onclick="closeModal('tableModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Menu Modal -->
+  <div id="menuModal" class="modal">
+    <div class="modal-content">
+      <h2 id="menuModalTitle">Add Menu Item</h2>
+      <div class="form-group">
+        <label>Item Name</label>
+        <input type="text" id="itemName" placeholder="e.g., Burger">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <input type="text" id="itemCategory" placeholder="e.g., Main Course">
+      </div>
+      <div class="form-group">
+        <label>Price</label>
+        <input type="number" id="itemPrice" step="0.01" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="itemDescription" rows="3" placeholder="Optional description"></textarea>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="saveMenuItem()">Save</button>
+        <button class="btn btn-secondary" onclick="closeModal('menuModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Modal -->
+  <div id="orderModal" class="modal">
+    <div class="modal-content">
+      <h2 id="orderTableName">Table Order</h2>
+      <div style="margin-bottom: 20px;">
+        <h3>Menu</h3>
+        <div id="orderMenuList"></div>
+      </div>
+      <div>
+        <h3>Current Order</h3>
+        <div id="currentOrderList"></div>
+        <div class="order-summary">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span>Subtotal:</span>
+            <span id="orderSubtotal">$0.00</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span>Tax:</span>
+            <span id="orderTax">$0.00</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 20px; font-weight: bold;">
+            <span>Total:</span>
+            <span id="orderTotal">$0.00</span>
+          </div>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-success" onclick="placeOrder()">Place Order</button>
+        <button class="btn btn-danger" onclick="checkout()">Checkout</button>
+        <button class="btn btn-secondary" onclick="closeModal('orderModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import/Export Modal -->
+  <div id="importExportModal" class="modal">
+    <div class="modal-content">
+      <h2 id="importExportTitle">Import/Export Data</h2>
+      <div class="form-group">
+        <label>Data JSON</label>
+        <textarea id="dataJson" rows="10" style="font-family: monospace;"></textarea>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="importExportAction">Action</button>
+        <button class="btn btn-secondary" onclick="closeModal('importExportModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sync-indicator" id="syncIndicator">
+    <span class="sync-dot" id="syncDot"></span>
+    <span id="syncText">● Synced</span>
+  </div>
+
+  <div class="sync-controls">
+    <button onclick="manualSync()">Manual Sync</button>
+    <button onclick="showSection('sync')">Sync Settings</button>
+    <div class="device-id" id="deviceId">Device: Loading...</div>
+  </div>
+
+  <script>
+    // Initialize state
+    let state = {
+      tables: [],
+      menu: [],
+      orders: [],
+      settings: { 
+        restaurantName: 'My Restaurant', 
+        taxRate: 8.5,
+        firebaseConfig: null
+      },
+      currentTable: null,
+      currentOrder: []
+    };
+
+    let editingId = null;
+    let isOnline = navigator.onLine;
+    let deviceId = localStorage.getItem('deviceId') || generateDeviceId();
+    let firebaseApp = null;
+    let firestore = null;
+    let syncListeners = [];
+    let lastSyncTime = null;
+
+    // Generate unique device ID
+    function generateDeviceId() {
+      const id = 'device_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('deviceId', id);
+      return id;
+    }
+
+    // Initialize
+    async function init() {
+      // Load from localStorage first
+      loadFromLocalStorage();
+      
+      // Setup device ID display
+      document.getElementById('deviceId').textContent = `Device: ${deviceId}`;
+      document.getElementById('deviceIdDisplay').value = deviceId;
+      
+      // Setup network detection
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+      updateOnlineStatus();
+      
+      // Initialize Firebase if configured
+      if (state.settings.firebaseConfig) {
+        initFirebase();
+      }
+      
+      // Start auto-sync interval
+      setInterval(autoSync, 30000); // Sync every 30 seconds
+      
+      // Initial render
+      renderTables();
+      renderMenu();
+      renderKitchen();
+      loadSettings();
+      updateSyncStatus();
+      
+      // Try initial sync
+      autoSync();
+    }
+
+    // LocalStorage Functions
+    function saveToLocalStorage() {
+      try {
+        localStorage.setItem('pos_state', JSON.stringify(state));
+        localStorage.setItem('pos_last_modified', Date.now());
+        console.log('Saved to localStorage');
+      } catch (e) {
+        console.error('Error saving to localStorage:', e);
+      }
+    }
+
+    function loadFromLocalStorage() {
+      try {
+        const saved = localStorage.getItem('pos_state');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          state = { ...state, ...parsed };
+          lastSyncTime = localStorage.getItem('pos_last_modified');
+          console.log('Loaded from localStorage');
+        }
+      } catch (e) {
+        console.error('Error loading from localStorage:', e);
+      }
+    }
+
+    // Firebase Functions
+    function initFirebase() {
+      try {
+        const configText = document.getElementById('firebaseConfig').value;
+        if (!configText) {
+          alert('Please enter Firebase configuration');
+          return;
+        }
+        
+        const config = JSON.parse(configText);
+        state.settings.firebaseConfig = config;
+        saveToLocalStorage();
+        
+        // Initialize Firebase
+        firebaseApp = firebase.initializeApp(config);
+        firestore = firebase.firestore();
+        
+        // Enable offline persistence
+        firestore.enablePersistence()
+          .then(() => {
+            console.log('Firebase persistence enabled');
+            updateFirebaseStatus('Connected with offline support');
+          })
+          .catch((err) => {
+            console.warn('Persistence failed:', err);
+            updateFirebaseStatus('Connected (offline disabled)');
+          });
+        
+        // Setup real-time listeners
+        setupFirebaseListeners();
+        
+        alert('Firebase initialized successfully');
+      } catch (error) {
+        console.error('Firebase init error:', error);
+        updateFirebaseStatus(`Error: ${error.message}`);
+        alert('Firebase initialization failed: ' + error.message);
+      }
+    }
+
+    function setupFirebaseListeners() {
+      if (!firestore) return;
+      
+      // Listen to tables
+      firestore.collection('tables').onSnapshot((snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const remoteTable = change.doc.data();
+            // Only update if remote data is newer
+            if (!remoteTable.lastModified || 
+                remoteTable.lastModified > (state.tables.find(t => t.id === change.doc.id)?.lastModified || 0)) {
+              const index = state.tables.findIndex(t => t.id === change.doc.id);
+              if (index >= 0) {
+                state.tables[index] = { ...remoteTable, id: change.doc.id };
+              } else {
+                state.tables.push({ ...remoteTable, id: change.doc.id });
+              }
+            }
+          }
+        });
+        renderTables();
+        saveToLocalStorage();
+      });
+
+      // Listen to menu
+      firestore.collection('menu').onSnapshot((snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const remoteItem = change.doc.data();
+            const index = state.menu.findIndex(m => m.id === change.doc.id);
+            if (index >= 0) {
+              state.menu[index] = { ...remoteItem, id: change.doc.id };
+            } else {
+              state.menu.push({ ...remoteItem, id: change.doc.id });
+            }
+          }
+        });
+        renderMenu();
+        saveToLocalStorage();
+      });
+
+      // Listen to orders
+      firestore.collection('orders').onSnapshot((snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const remoteOrder = change.doc.data();
+            const index = state.orders.findIndex(o => o.id === change.doc.id);
+            if (index >= 0) {
+              state.orders[index] = { ...remoteOrder, id: change.doc.id };
+            } else {
+              state.orders.push({ ...remoteOrder, id: change.doc.id });
+            }
+          }
+        });
+        renderKitchen();
+        saveToLocalStorage();
+      });
+    }
+
+    async function syncToFirebase() {
+      if (!firestore) return false;
+      
+      try {
+        updateSyncStatus('Syncing to Firebase...', 'syncing');
+        
+        // Sync tables
+        for (const table of state.tables) {
+          await firestore.collection('tables').doc(table.id).set({
+            ...table,
+            lastModified: Date.now(),
+            deviceId: deviceId
+          }, { merge: true });
+        }
+        
+        // Sync menu
+        for (const item of state.menu) {
+          await firestore.collection('menu').doc(item.id).set({
+            ...item,
+            lastModified: Date.now(),
+            deviceId: deviceId
+          }, { merge: true });
+        }
+        
+        // Sync orders
+        for (const order of state.orders) {
+          await firestore.collection('orders').doc(order.id).set({
+            ...order,
+            lastModified: Date.now(),
+            deviceId: deviceId
+          }, { merge: true });
+        }
+        
+        // Sync settings
+        await firestore.collection('settings').doc('restaurant').set({
+          ...state.settings,
+          lastModified: Date.now(),
+          deviceId: deviceId
+        }, { merge: true });
+        
+        updateSyncStatus('Synced to Firebase', 'synced');
+        lastSyncTime = Date.now();
+        localStorage.setItem('pos_last_sync', lastSyncTime);
+        return true;
+      } catch (error) {
+        console.error('Firebase sync error:', error);
+        updateSyncStatus('Sync failed', 'error');
+        return false;
+      }
+    }
+
+    async function syncFromFirebase() {
+      if (!firestore) return false;
+      
+      try {
+        updateSyncStatus('Syncing from Firebase...', 'syncing');
+        
+        // Get tables
+        const tablesSnapshot = await firestore.collection('tables').get();
+        const remoteTables = [];
+        tablesSnapshot.forEach(doc => {
+          remoteTables.push({ ...doc.data(), id: doc.id });
+        });
+        
+        // Get menu
+        const menuSnapshot = await firestore.collection('menu').get();
+        const remoteMenu = [];
+        menuSnapshot.forEach(doc => {
+          remoteMenu.push({ ...doc.data(), id: doc.id });
+        });
+        
+        // Get orders
+        const ordersSnapshot = await firestore.collection('orders').get();
+        const remoteOrders = [];
+        ordersSnapshot.forEach(doc => {
+          remoteOrders.push({ ...doc.data(), id: doc.id });
+        });
+        
+        // Get settings
+        const settingsDoc = await firestore.collection('settings').doc('restaurant').get();
+        const remoteSettings = settingsDoc.exists ? settingsDoc.data() : null;
+        
+        // Merge data (prefer newer timestamps)
+        state.tables = mergeArrays(state.tables, remoteTables, 'lastModified');
+        state.menu = mergeArrays(state.menu, remoteMenu, 'lastModified');
+        state.orders = mergeArrays(state.orders, remoteOrders, 'lastModified');
+        
+        if (remoteSettings && remoteSettings.lastModified > (state.settings.lastModified || 0)) {
+          state.settings = { ...state.settings, ...remoteSettings };
+        }
+        
+        saveToLocalStorage();
+        renderTables();
+        renderMenu();
+        renderKitchen();
+        
+        updateSyncStatus('Synced from Firebase', 'synced');
+        lastSyncTime = Date.now();
+        localStorage.setItem('pos_last_sync', lastSyncTime);
+        return true;
+      } catch (error) {
+        console.error('Firebase sync error:', error);
+        updateSyncStatus('Sync failed', 'error');
+        return false;
+      }
+    }
+
+    function mergeArrays(local, remote, timestampKey) {
+      const merged = [...local];
+      const localMap = new Map(local.map(item => [item.id, item]));
+      
+      for (const remoteItem of remote) {
+        const localItem = localMap.get(remoteItem.id);
+        if (!localItem || remoteItem[timestampKey] > localItem[timestampKey]) {
+          if (localItem) {
+            const index = merged.findIndex(item => item.id === remoteItem.id);
+            merged[index] = remoteItem;
+          } else {
+            merged.push(remoteItem);
+          }
+        }
+      }
+      
+      return merged;
+    }
+
+    // Sync Management
+    async function autoSync() {
+      if (!isOnline) return;
+      
+      if (firestore) {
+        // Two-way sync with Firebase
+        await syncFromFirebase();
+        await syncToFirebase();
+      }
+    }
+
+    async function manualSync() {
+      updateSyncStatus('Manual sync started...', 'syncing');
+      await autoSync();
+    }
+
+    function updateSyncStatus(message, status = 'synced') {
+      const indicator = document.getElementById('syncIndicator');
+      const dot = document.getElementById('syncDot');
+      const text = document.getElementById('syncText');
+      const statusDiv = document.getElementById('syncStatus');
+      
+      text.textContent = message;
+      statusDiv.textContent = message;
+      
+      indicator.className = 'sync-indicator';
+      dot.className = 'sync-dot';
+      
+      if (status === 'syncing') {
+        indicator.classList.add('syncing');
+        dot.classList.add('pulsing');
+      } else if (status === 'error') {
+        indicator.classList.add('error');
+      }
+      
+      // Update last sync time
+      if (lastSyncTime) {
+        const timeStr = new Date(parseInt(lastSyncTime)).toLocaleTimeString();
+        document.getElementById('lastSync').textContent = timeStr;
+      }
+    }
+
+    function updateFirebaseStatus(message) {
+      document.getElementById('firebaseStatus').textContent = message;
+    }
+
+    function clearFirebase() {
+      if (!firestore) return;
+      
+      if (confirm('Clear all Firebase data? This cannot be undone!')) {
+        // This would require batch delete - in production, you'd need proper cleanup
+        alert('Firebase clear would require batch delete implementation');
+      }
+    }
+
+    // Import/Export Functions
+    function exportData() {
+      const exportData = {
+        tables: state.tables,
+        menu: state.menu,
+        orders: state.orders,
+        settings: state.settings,
+        exportTime: Date.now(),
+        deviceId: deviceId
+      };
+      
+      document.getElementById('importExportTitle').textContent = 'Export Data';
+      document.getElementById('dataJson').value = JSON.stringify(exportData, null, 2);
+      document.getElementById('importExportAction').textContent = 'Copy to Clipboard';
+      document.getElementById('importExportAction').onclick = copyToClipboard;
+      document.getElementById('importExportModal').classList.add('active');
+    }
+
+    function importData() {
+      document.getElementById('importExportTitle').textContent = 'Import Data';
+      document.getElementById('dataJson').value = '';
+      document.getElementById('importExportAction').textContent = 'Import Data';
+      document.getElementById('importExportAction').onclick = performImport;
+      document.getElementById('importExportModal').classList.add('active');
+    }
+
+    function copyToClipboard() {
+      const textarea = document.getElementById('dataJson');
+      textarea.select();
+      document.execCommand('copy');
+      alert('Data copied to clipboard!');
+    }
+
+    function performImport() {
+      try {
+        const jsonText = document.getElementById('dataJson').value;
+        const imported = JSON.parse(jsonText);
+        
+        if (confirm('Import data? This will replace current data.')) {
+          state.tables = imported.tables || state.tables;
+          state.menu = imported.menu || state.menu;
+          state.orders = imported.orders || state.orders;
+          state.settings = { ...state.settings, ...imported.settings };
+          
+          saveToLocalStorage();
+          renderTables();
+          renderMenu();
+          renderKitchen();
+          alert('Data imported successfully!');
+          closeModal('importExportModal');
+        }
+      } catch (e) {
+        alert('Invalid JSON format: ' + e.message);
+      }
+    }
+
+    // Network Functions
+    function handleOnline() {
+      isOnline = true;
+      document.getElementById('offlineBadge').style.display = 'none';
+      updateSyncStatus('Back online, syncing...', 'syncing');
+      autoSync();
+    }
+
+    function handleOffline() {
+      isOnline = false;
+      document.getElementById('offlineBadge').style.display = 'block';
+      updateSyncStatus('Offline - working locally', 'error');
+    }
+
+    function updateOnlineStatus() {
+      if (isOnline) {
+        document.getElementById('offlineBadge').style.display = 'none';
+      } else {
+        document.getElementById('offlineBadge').style.display = 'block';
+      }
+    }
+
+    // Navigation
+    function showSection(section) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById(section).classList.add('active');
+      document.getElementById(`nav-${section}`).classList.add('active');
+    }
+
+    // Tables
+    function renderTables() {
+      const grid = document.getElementById('tablesGrid');
+      grid.innerHTML = state.tables.map(t => `
+        <div class="card ${t.occupied ? 'occupied' : ''}" onclick="openTable('${t.id}')">
+          <h3>${t.number}</h3>
+          <p>Capacity: ${t.capacity}</p>
+          <p>${t.occupied ? 'Occupied' : 'Available'}</p>
+          <button class="btn btn-secondary" style="margin-top: 10px; padding: 8px 16px;" onclick="event.stopPropagation(); editTable('${t.id}')">Edit</button>
+        </div>
+      `).join('');
+    }
+
+    function showAddTableModal() {
+      editingId = null;
+      document.getElementById('tableModalTitle').textContent = 'Add Table';
+      document.getElementById('tableNumber').value = '';
+      document.getElementById('tableCapacity').value = '';
+      document.getElementById('tableModal').classList.add('active');
+    }
+
+    function editTable(id) {
+      const table = state.tables.find(t => t.id === id);
+      if (!table) return;
+      
+      editingId = id;
+      document.getElementById('tableModalTitle').textContent = 'Edit Table';
+      document.getElementById('tableNumber').value = table.number;
+      document.getElementById('tableCapacity').value = table.capacity;
+      document.getElementById('tableModal').classList.add('active');
+    }
+
+    function saveTable() {
+      const number = document.getElementById('tableNumber').value.trim();
+      const capacity = parseInt(document.getElementById('tableCapacity').value);
+      
+      if (!number || !capacity) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      if (editingId) {
+        const table = state.tables.find(t => t.id === editingId);
+        table.number = number;
+        table.capacity = capacity;
+        table.lastModified = Date.now();
+      } else {
+        state.tables.push({
+          id: Date.now().toString(),
+          number,
+          capacity,
+          occupied: false,
+          lastModified: Date.now(),
+          deviceId: deviceId
+        });
+      }
+
+      saveToLocalStorage();
+      if (firestore) syncToFirebase();
+      renderTables();
+      closeModal('tableModal');
+    }
+
+    // Menu
+    function renderMenu() {
+      const list = document.getElementById('menuList');
+      list.innerHTML = state.menu.map(item => `
+        <div class="menu-item">
+          <div class="menu-item-info">
+            <h4>${item.name}</h4>
+            <p style="color: #666;">${item.category}</p>
+            <p style="font-size: 14px;">${item.description || ''}</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <span class="menu-item-price">$${item.price.toFixed(2)}</span>
+            <button class="btn btn-secondary" style="padding: 8px 16px;" onclick="editMenuItem('${item.id}')">Edit</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function showAddMenuModal() {
+      editingId = null;
+      document.getElementById('menuModalTitle').textContent = 'Add Menu Item';
+      document.getElementById('itemName').value = '';
+      document.getElementById('itemCategory').value = '';
+      document.getElementById('itemPrice').value = '';
+      document.getElementById('itemDescription').value = '';
+      document.getElementById('menuModal').classList.add('active');
+    }
+
+    function editMenuItem(id) {
+      const item = state.menu.find(m => m.id === id);
+      if (!item) return;
+      
+      editingId = id;
+      document.getElementById('menuModalTitle').textContent = 'Edit Menu Item';
+      document.getElementById('itemName').value = item.name;
+      document.getElementById('itemCategory').value = item.category;
+      document.getElementById('itemPrice').value = item.price;
+      document.getElementById('itemDescription').value = item.description || '';
+      document.getElementById('menuModal').classList.add('active');
+    }
+
+    function saveMenuItem() {
+      const name = document.getElementById('itemName').value.trim();
+      const category = document.getElementById('itemCategory').value.trim();
+      const price = parseFloat(document.getElementById('itemPrice').value);
+      const description = document.getElementById('itemDescription').value.trim();
+      
+      if (!name || !category || !price) {
+        alert('Please fill required fields');
+        return;
+      }
+
+      if (editingId) {
+        const item = state.menu.find(m => m.id === editingId);
+        item.name = name;
+        item.category = category;
+        item.price = price;
+        item.description = description;
+        item.lastModified = Date.now();
+      } else {
+        state.menu.push({
+          id: Date.now().toString(),
+          name,
+          category,
+          price,
+          description,
+          lastModified: Date.now(),
+          deviceId: deviceId
+        });
+      }
+
+      saveToLocalStorage();
+      if (firestore) syncToFirebase();
+      renderMenu();
+      closeModal('menuModal');
+    }
+
+    // Orders
+    function openTable(tableId) {
+      const table = state.tables.find(t => t.id === tableId);
+      if (!table) return;
+
+      state.currentTable = tableId;
+      const existingOrder = state.orders.find(o => o.tableId === tableId && o.status !== 'completed');
+      state.currentOrder = existingOrder ? existingOrder.items : [];
+
+      document.getElementById('orderTableName').textContent = `Table ${table.number}`;
+      
+      const menuList = document.getElementById('orderMenuList');
+      menuList.innerHTML = state.menu.map(item => `
+        <div class="menu-item">
+          <div class="menu-item-info">
+            <h4>${item.name}</h4>
+            <span class="menu-item-price">$${item.price.toFixed(2)}</span>
+          </div>
+          <button class="btn btn-primary" style="padding: 8px 16px;" onclick="addToOrder('${item.id}')">Add</button>
+        </div>
+      `).join('');
+
+      updateOrderDisplay();
+      document.getElementById('orderModal').classList.add('active');
+    }
+
+    function addToOrder(itemId) {
+      const item = state.menu.find(m => m.id === itemId);
+      if (!item) return;
+
+      const existing = state.currentOrder.find(o => o.id === itemId);
+      if (existing) {
+        existing.quantity++;
+      } else {
+        state.currentOrder.push({ ...item, quantity: 1 });
+      }
+
+      updateOrderDisplay();
+    }
+
+    function removeFromOrder(itemId) {
+      state.currentOrder = state.currentOrder.filter(i => i.id !== itemId);
+      updateOrderDisplay();
+    }
+
+    function updateOrderDisplay() {
+      const list = document.getElementById('currentOrderList');
+      
+      if (state.currentOrder.length === 0) {
+        list.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No items added</p>';
+      } else {
+        list.innerHTML = state.currentOrder.map(item => `
+          <div class="order-item">
+            <div>
+              <strong>${item.name}</strong>
+              <span style="margin-left: 10px;">x${item.quantity}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span>$${(item.price * item.quantity).toFixed(2)}</span>
+              <button class="btn btn-danger" style="padding: 5px 10px; font-size: 14px;" onclick="removeFromOrder('${item.id}')">Remove</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      const subtotal = state.currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const tax = subtotal * (state.settings.taxRate / 100);
+      const total = subtotal + tax;
+
+      document.getElementById('orderSubtotal').textContent = `$${subtotal.toFixed(2)}`;
+      document.getElementById('orderTax').textContent = `$${tax.toFixed(2)}`;
+      document.getElementById('orderTotal').textContent = `$${total.toFixed(2)}`;
+    }
+
+    function placeOrder() {
+      if (state.currentOrder.length === 0) {
+        alert('Add items to order');
+        return;
+      }
+
+      const table = state.tables.find(t => t.id === state.currentTable);
+      table.occupied = true;
+
+      const existingOrder = state.orders.find(o => o.tableId === state.currentTable && o.status !== 'completed');
+      
+      if (existingOrder) {
+        existingOrder.items = state.currentOrder;
+        existingOrder.updatedAt = new Date().toISOString();
+        existingOrder.lastModified = Date.now();
+      } else {
+        state.orders.push({
+          id: Date.now().toString(),
+          tableId: state.currentTable,
+          tableName: table.number,
+          items: state.currentOrder,
+          status: 'new',
+          createdAt: new Date().toISOString(),
+          lastModified: Date.now(),
+          deviceId: deviceId
+        });
+      }
+
+      saveToLocalStorage();
+      if (firestore) syncToFirebase();
+      renderTables();
+      alert('Order placed!');
+      closeModal('orderModal');
+    }
+
+    function checkout() {
+      if (state.currentOrder.length === 0) {
+        alert('No items to checkout');
+        return;
+      }
+
+      const table = state.tables.find(t => t.id === state.currentTable);
+      table.occupied = false;
+
+      const order = state.orders.find(o => o.tableId === state.currentTable && o.status !== 'completed');
+      if (order) {
+        order.status = 'completed';
+        order.lastModified = Date.now();
+      }
+
+      saveToLocalStorage();
+      if (firestore) syncToFirebase();
+      renderTables();
+      alert('Checkout complete!');
+      closeModal('orderModal');
+    }
+
+    // Kitchen
+    function renderKitchen() {
+      const container = document.getElementById('kitchenOrders');
+      const activeOrders = state.orders.filter(o => o.status !== 'completed');
+
+      if (activeOrders.length === 0) {
+        container.innerHTML = '<p style="color: #666; text-align: center; padding: 40px;">No active orders</p>';
+        return;
+      }
+
+      container.innerHTML = activeOrders.map(order => `
+        <div class="order-card ${order.status}">
+          <div class="order-header">
+            <div>
+              <h3>Table ${order.tableName}</h3>
+              <p style="color: #666; font-size: 14px;">${new Date(order.createdAt).toLocaleTimeString()}</p>
+              <small style="color: #999;">From: ${order.deviceId || 'Unknown'}</small>
+            </div>
+            <span class="status-badge ${order.status}">${order.status.toUpperCase()}</span>
+          </div>
+          <div>
+            ${order.items.map(item => `
+              <div style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                <strong>${item.name}</strong> x${item.quantity}
+              </div>
+            `).join('')}
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary" style="padding: 8px 16px;" onclick="updateOrderStatus('${order.id}', 'processing')">Processing</button>
+            <button class="btn btn-success" style="padding: 8px 16px;" onclick="updateOrderStatus('${order.id}', 'ready')">Ready</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateOrderStatus(orderId, status) {
+      const order = state.orders.find(o => o.id === orderId);
+      if (order) {
+        order.status = status;
+        order.lastModified = Date.now();
+        saveToLocalStorage();
+        if (firestore) syncToFirebase();
+        renderKitchen();
+      }
+    }
+
+    // Settings
+    function loadSettings() {
+      document.getElementById('restaurantName').value = state.settings.restaurantName;
+      document.getElementById('taxRate').value = state.settings.taxRate;
+      if (state.settings.firebaseConfig) {
+        document.getElementById('firebaseConfig').value = JSON.stringify(state.settings.firebaseConfig, null, 2);
+      }
+    }
+
+    function saveSettings() {
+      state.settings.restaurantName = document.getElementById('restaurantName').value;
+      state.settings.taxRate = parseFloat(document.getElementById('taxRate').value);
+      
+      try {
+        const configText = document.getElementById('firebaseConfig').value;
+        if (configText) {
+          state.settings.firebaseConfig = JSON.parse(configText);
+        }
+      } catch (e) {
+        console.warn('Invalid Firebase config:', e);
+      }
+      
+      state.settings.lastModified = Date.now();
+      saveToLocalStorage();
+      if (firestore) syncToFirebase();
+      alert('Settings saved!');
+    }
+
+    // Modal
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    // Start app
+    init();
+  </script>
+</body>
 </html>
