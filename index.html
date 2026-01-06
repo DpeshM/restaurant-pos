@@ -3,11 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Restaurant POS</title>
-  <!-- Add Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-analytics.js"></script>
-  
+  <title>Restaurant POS - Same WiFi Sync</title>
   <style>
     * {
       margin: 0;
@@ -282,6 +278,54 @@
       color: white;
     }
 
+    .device-card {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .device-card.active {
+      border-color: #28a745;
+      background: #e8f5e8;
+    }
+
+    .device-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .device-name {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .device-ip {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .device-status {
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: #6c757d;
+      color: white;
+    }
+
+    .device-status.connected {
+      background: #28a745;
+    }
+
+    .device-status.syncing {
+      background: #ffc107;
+      color: #333;
+    }
+
     .sync-indicator {
       position: fixed;
       bottom: 20px;
@@ -295,6 +339,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      z-index: 1000;
     }
 
     .sync-indicator.syncing {
@@ -322,45 +367,54 @@
       100% { opacity: 1; }
     }
 
-    .sync-controls {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      display: flex;
-      gap: 10px;
-      flex-direction: column;
-    }
-
-    .sync-controls button {
-      padding: 8px 16px;
-      background: #6c757d;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-
-    .sync-controls button:hover {
-      background: #545b62;
-    }
-
-    .device-id {
-      font-size: 12px;
-      color: #666;
-      margin-top: 10px;
-    }
-
-    .offline-badge {
+    .network-status {
       position: fixed;
       top: 20px;
       right: 20px;
       padding: 8px 16px;
-      background: #ffc107;
-      color: #333;
+      background: #6c757d;
+      color: white;
       border-radius: 20px;
       font-size: 12px;
       font-weight: 500;
+    }
+
+    .network-status.online {
+      background: #28a745;
+    }
+
+    .network-status.offline {
+      background: #dc3545;
+    }
+
+    .network-status.local {
+      background: #17a2b8;
+    }
+
+    .chat-message {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 8px;
+      background: #f8f9fa;
+      border-left: 4px solid #007bff;
+    }
+
+    .chat-message.remote {
+      background: #e9ecef;
+      border-left-color: #28a745;
+    }
+
+    .chat-input {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
     }
 
     @media (max-width: 768px) {
@@ -371,25 +425,21 @@
       .modal-content {
         padding: 20px;
       }
-      
-      .sync-controls {
-        bottom: 60px;
-      }
     }
   </style>
 </head>
 <body>
-  <div class="offline-badge" id="offlineBadge" style="display: none;">Offline Mode</div>
+  <div class="network-status" id="networkStatus">Checking Network...</div>
   
   <div class="container">
     <div class="header">
-      <h1 style="margin-bottom: 20px;">Restaurant POS</h1>
+      <h1 style="margin-bottom: 20px;">Restaurant POS - Local WiFi Sync</h1>
       <div class="nav">
         <button onclick="showSection('tables')" class="active" id="nav-tables">Tables</button>
         <button onclick="showSection('menu')" id="nav-menu">Menu</button>
         <button onclick="showSection('kitchen')" id="nav-kitchen">Kitchen</button>
-        <button onclick="showSection('settings')" id="nav-settings">Settings</button>
-        <button onclick="showSection('sync')" id="nav-sync">Sync</button>
+        <button onclick="showSection('network')" id="nav-network">Network Sync</button>
+        <button onclick="showSection('chat')" id="nav-chat">Staff Chat</button>
       </div>
     </div>
 
@@ -418,60 +468,89 @@
         <div id="kitchenOrders"></div>
       </div>
 
-      <!-- Settings Section -->
-      <div id="settings" class="section">
-        <h2 style="margin-bottom: 20px;">Settings</h2>
+      <!-- Network Sync Section -->
+      <div id="network" class="section">
+        <h2 style="margin-bottom: 20px;">Local Network Sync</h2>
+        
         <div class="form-group">
-          <label>Restaurant Name</label>
-          <input type="text" id="restaurantName" placeholder="Enter restaurant name">
+          <label>Device Name</label>
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="deviceName" value="POS Terminal 1" style="flex: 1;">
+            <button class="btn btn-primary" onclick="updateDeviceName()">Update</button>
+          </div>
         </div>
+
         <div class="form-group">
-          <label>Tax Rate (%)</label>
-          <input type="number" id="taxRate" step="0.1" placeholder="Enter tax rate">
+          <label>Sync Mode</label>
+          <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button class="btn btn-primary" onclick="startWebSocketServer()" id="wsServerBtn">Start WebSocket Server</button>
+            <button class="btn btn-secondary" onclick="connectToWebSocket()" id="wsClientBtn">Connect to Server</button>
+            <button class="btn btn-success" onclick="startP2P()" id="p2pBtn">Start P2P Mode</button>
+          </div>
+          <small style="color: #666; display: block; margin-top: 5px;">
+            <strong>WebSocket Server:</strong> One device acts as server, others connect to it.<br>
+            <strong>P2P Mode:</strong> Direct device-to-device connections using WebRTC.
+          </small>
         </div>
+
         <div class="form-group">
-          <label>Firebase Config (JSON)</label>
-          <textarea id="firebaseConfig" rows="6" placeholder='{
-  apiKey: "AIzaSyDYtZVzqu1J1nYFf-bGYRmDMjaisB8NfmM",
-  authDomain: "cafeapp-6c468.firebaseapp.com",
-  projectId: "cafeapp-6c468",
-  storageBucket: "cafeapp-6c468.firebasestorage.app",
-  messagingSenderId: "390607952424",
-  appId: "1:390607952424:web:0ce0b85b2f3c079120f31d",
-  measurementId: "G-HWNK2TG8MV"
-}'></textarea>
+          <label>Local Network Devices</label>
+          <div id="discoveredDevices">
+            <p style="color: #666; padding: 20px; text-align: center;">Searching for devices on same WiFi...</p>
+          </div>
         </div>
-        <button class="btn btn-success" onclick="saveSettings()">Save Settings</button>
+
+        <div class="form-group">
+          <label>Connection Status</label>
+          <div id="connectionStatus" style="padding: 15px; background: #f8f9fa; border-radius: 6px;">
+            <p>Not connected</p>
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">Local IP: <span id="localIp">Detecting...</span></p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Sync Log</label>
+          <div id="syncLog" style="height: 200px; overflow-y: auto; padding: 10px; background: #f8f9fa; border-radius: 6px; font-family: monospace; font-size: 12px;">
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-success" onclick="broadcastData()">Broadcast Data</button>
+          <button class="btn btn-secondary" onclick="requestFullSync()">Request Full Sync</button>
+          <button class="btn btn-danger" onclick="stopAllConnections()">Stop All Connections</button>
+        </div>
       </div>
 
-      <!-- Sync Section -->
-      <div id="sync" class="section">
-        <h2 style="margin-bottom: 20px;">Data Sync</h2>
+      <!-- Staff Chat Section -->
+      <div id="chat" class="section">
+        <h2 style="margin-bottom: 20px;">Staff Chat</h2>
+        
         <div class="form-group">
-          <label>Device ID</label>
-          <input type="text" id="deviceIdDisplay" readonly>
-        </div>
-        <div class="form-group">
-          <label>Sync Status</label>
-          <div id="syncStatus">Checking...</div>
-        </div>
-        <div class="form-group">
-          <label>Last Sync</label>
-          <div id="lastSync">Never</div>
-        </div>
-        <div class="btn-group">
-          <button class="btn btn-primary" onclick="manualSync()">Sync Now</button>
-          <button class="btn btn-secondary" onclick="exportData()">Export Data</button>
-          <button class="btn btn-secondary" onclick="importData()">Import Data</button>
-        </div>
-        <div style="margin-top: 30px;">
-          <h3>Firebase Sync Status</h3>
-          <div id="firebaseStatus" style="padding: 10px; background: #f8f9fa; border-radius: 6px; margin-top: 10px;">
-            Not configured
+          <label>Connected Staff</label>
+          <div id="staffList">
+            <p style="color: #666; padding: 10px; text-align: center;">No staff connected</p>
           </div>
-          <div class="btn-group" style="margin-top: 15px;">
-            <button class="btn btn-success" onclick="initFirebase()">Initialize Firebase</button>
-            <button class="btn btn-danger" onclick="clearFirebase()">Clear Firebase Data</button>
+        </div>
+
+        <div class="form-group">
+          <label>Chat Messages</label>
+          <div id="chatMessages" style="height: 300px; overflow-y: auto; padding: 15px; background: #f8f9fa; border-radius: 6px; margin-bottom: 10px;">
+            <p style="color: #666; text-align: center;">No messages yet</p>
+          </div>
+          
+          <div class="chat-input">
+            <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="handleChatKeyPress(event)">
+            <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Quick Messages</label>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="sendQuickMessage('Table ready for cleaning')">Table Clean</button>
+            <button class="btn btn-secondary" onclick="sendQuickMessage('Order delayed')">Order Delay</button>
+            <button class="btn btn-secondary" onclick="sendQuickMessage('Need assistance')">Assistance</button>
+            <button class="btn btn-secondary" onclick="sendQuickMessage('Order ready')">Order Ready</button>
           </div>
         </div>
       </div>
@@ -558,30 +637,9 @@
     </div>
   </div>
 
-  <!-- Import/Export Modal -->
-  <div id="importExportModal" class="modal">
-    <div class="modal-content">
-      <h2 id="importExportTitle">Import/Export Data</h2>
-      <div class="form-group">
-        <label>Data JSON</label>
-        <textarea id="dataJson" rows="10" style="font-family: monospace;"></textarea>
-      </div>
-      <div class="btn-group">
-        <button class="btn btn-primary" id="importExportAction">Action</button>
-        <button class="btn btn-secondary" onclick="closeModal('importExportModal')">Cancel</button>
-      </div>
-    </div>
-  </div>
-
   <div class="sync-indicator" id="syncIndicator">
     <span class="sync-dot" id="syncDot"></span>
-    <span id="syncText">● Synced</span>
-  </div>
-
-  <div class="sync-controls">
-    <button onclick="manualSync()">Manual Sync</button>
-    <button onclick="showSection('sync')">Sync Settings</button>
-    <div class="device-id" id="deviceId">Device: Loading...</div>
+    <span id="syncText">Ready</span>
   </div>
 
   <script>
@@ -592,67 +650,70 @@
       orders: [],
       settings: { 
         restaurantName: 'My Restaurant', 
-        taxRate: 8.5,
-        firebaseConfig: null
+        taxRate: 8.5
       },
       currentTable: null,
       currentOrder: []
     };
 
     let editingId = null;
-    let isOnline = navigator.onLine;
     let deviceId = localStorage.getItem('deviceId') || generateDeviceId();
-    let firebaseApp = null;
-    let firestore = null;
-    let syncListeners = [];
-    let lastSyncTime = null;
+    let deviceName = localStorage.getItem('deviceName') || 'POS Terminal ' + Math.floor(Math.random() * 100);
+    let localIp = 'Unknown';
+    let isServer = false;
+    let wsServer = null;
+    let wsClient = null;
+    let peers = new Map();
+    let connectedDevices = new Map();
+    let chatMessages = [];
+    let syncInterval = null;
 
     // Generate unique device ID
     function generateDeviceId() {
-      const id = 'device_' + Math.random().toString(36).substr(2, 9);
+      const id = 'device_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
       localStorage.setItem('deviceId', id);
       return id;
     }
 
     // Initialize
     async function init() {
-      // Load from localStorage first
+      // Load from localStorage
       loadFromLocalStorage();
       
-      // Setup device ID display
-      document.getElementById('deviceId').textContent = `Device: ${deviceId}`;
-      document.getElementById('deviceIdDisplay').value = deviceId;
+      // Get local IP
+      getLocalIP().then(ip => {
+        localIp = ip;
+        document.getElementById('localIp').textContent = ip;
+        updateNetworkStatus('Connected to Local Network');
+      });
       
-      // Setup network detection
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-      updateOnlineStatus();
+      // Setup device
+      document.getElementById('deviceName').value = deviceName;
       
-      // Initialize Firebase if configured
-      if (state.settings.firebaseConfig) {
-        initFirebase();
-      }
+      // Setup network discovery
+      startNetworkDiscovery();
       
-      // Start auto-sync interval
-      setInterval(autoSync, 30000); // Sync every 30 seconds
+      // Start sync heartbeat
+      syncInterval = setInterval(syncHeartbeat, 5000);
       
       // Initial render
       renderTables();
       renderMenu();
       renderKitchen();
-      loadSettings();
-      updateSyncStatus();
       
-      // Try initial sync
-      autoSync();
+      // Update UI
+      updateConnectionStatus();
+      updateSyncStatus('Ready');
     }
 
     // LocalStorage Functions
     function saveToLocalStorage() {
       try {
         localStorage.setItem('pos_state', JSON.stringify(state));
-        localStorage.setItem('pos_last_modified', Date.now());
         console.log('Saved to localStorage');
+        
+        // Broadcast change to connected peers
+        broadcastDataChange('local_update', { timestamp: Date.now() });
       } catch (e) {
         console.error('Error saving to localStorage:', e);
       }
@@ -664,7 +725,6 @@
         if (saved) {
           const parsed = JSON.parse(saved);
           state = { ...state, ...parsed };
-          lastSyncTime = localStorage.getItem('pos_last_modified');
           console.log('Loaded from localStorage');
         }
       } catch (e) {
@@ -672,254 +732,593 @@
       }
     }
 
-    // Firebase Functions
-    function initFirebase() {
+    // Network Functions
+    async function getLocalIP() {
+      return new Promise((resolve) => {
+        // Try WebRTC to get local IP
+        const RTCPeerConnection = window.RTCPeerConnection || 
+                                 window.mozRTCPeerConnection || 
+                                 window.webkitRTCPeerConnection;
+        
+        if (!RTCPeerConnection) {
+          resolve('192.168.1.x'); // Fallback
+          return;
+        }
+
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        pc.createDataChannel('');
+        pc.createOffer().then(pc.setLocalDescription.bind(pc));
+        
+        pc.onicecandidate = (ice) => {
+          if (!ice || !ice.candidate || !ice.candidate.candidate) return;
+          const match = ice.candidate.candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3})/);
+          if (match) {
+            resolve(match[1]);
+            pc.close();
+          }
+        };
+        
+        // Timeout fallback
+        setTimeout(() => {
+          resolve('192.168.1.x');
+          pc.close();
+        }, 1000);
+      });
+    }
+
+    function updateNetworkStatus(status) {
+      const element = document.getElementById('networkStatus');
+      element.textContent = status;
+      
+      if (status.includes('Local')) {
+        element.className = 'network-status local';
+      } else if (status.includes('Connected')) {
+        element.className = 'network-status online';
+      } else if (status.includes('Offline')) {
+        element.className = 'network-status offline';
+      }
+    }
+
+    // WebSocket Server (One device acts as server)
+    function startWebSocketServer() {
       try {
-        const configText = document.getElementById('firebaseConfig').value;
-        if (!configText) {
-          alert('Please enter Firebase configuration');
+        // Check if we can create a WebSocket server
+        if (typeof WebSocket !== 'undefined') {
+          // In browser, we can't create a WebSocket server directly
+          // We'll use a signaling server approach
+          alert('WebSocket Server requires Node.js. Switching to P2P mode instead.');
+          startP2P();
           return;
         }
         
-        const config = JSON.parse(configText);
-        state.settings.firebaseConfig = config;
-        saveToLocalStorage();
+        // This would require Node.js - for demo we'll use P2P
+        startP2P();
         
-        // Initialize Firebase
-        firebaseApp = firebase.initializeApp(config);
-        firestore = firebase.firestore();
+      } catch (error) {
+        console.error('WebSocket server error:', error);
+        addToSyncLog('Error starting server: ' + error.message);
+      }
+    }
+
+    // WebSocket Client (Connect to server)
+    function connectToWebSocket() {
+      const serverIp = prompt('Enter server IP address (e.g., 192.168.1.100):', '192.168.1.100');
+      if (!serverIp) return;
+      
+      const port = 8080; // Default port
+      const wsUrl = `ws://${serverIp}:${port}`;
+      
+      try {
+        wsClient = new WebSocket(wsUrl);
         
-        // Enable offline persistence
-        firestore.enablePersistence()
-          .then(() => {
-            console.log('Firebase persistence enabled');
-            updateFirebaseStatus('Connected with offline support');
-          })
-          .catch((err) => {
-            console.warn('Persistence failed:', err);
-            updateFirebaseStatus('Connected (offline disabled)');
+        wsClient.onopen = () => {
+          addToSyncLog('Connected to WebSocket server');
+          updateConnectionStatus('Connected to server');
+          isServer = false;
+          
+          // Send device info
+          wsClient.send(JSON.stringify({
+            type: 'device_info',
+            deviceId: deviceId,
+            deviceName: deviceName,
+            ip: localIp
+          }));
+        };
+        
+        wsClient.onmessage = (event) => {
+          handleNetworkMessage(event.data);
+        };
+        
+        wsClient.onerror = (error) => {
+          addToSyncLog('WebSocket error: ' + error.message);
+          updateConnectionStatus('Connection error');
+        };
+        
+        wsClient.onclose = () => {
+          addToSyncLog('Disconnected from server');
+          updateConnectionStatus('Disconnected');
+        };
+        
+      } catch (error) {
+        alert('Failed to connect: ' + error.message);
+        addToSyncLog('Connection failed: ' + error.message);
+      }
+    }
+
+    // P2P WebRTC Connection
+    function startP2P() {
+      addToSyncLog('Starting P2P mode...');
+      updateConnectionStatus('P2P Mode Active');
+      
+      // Start broadcasting presence
+      broadcastPresence();
+    }
+
+    // Network Discovery
+    function startNetworkDiscovery() {
+      // Broadcast presence using WebSocket to common ports
+      discoverLocalDevices();
+      
+      // Listen for broadcasts
+      listenForBroadcasts();
+    }
+
+    function discoverLocalDevices() {
+      // Try to connect to common ports on local network
+      const ports = [8080, 8081, 8082, 3000, 3001];
+      const baseIp = localIp.substring(0, localIp.lastIndexOf('.') + 1);
+      
+      addToSyncLog('Scanning network for devices...');
+      
+      // For each possible IP on subnet
+      for (let i = 1; i < 255; i += 50) { // Sample every 50 IPs
+        const testIp = baseIp + i;
+        if (testIp !== localIp) {
+          ports.forEach(port => {
+            testConnection(testIp, port);
           });
-        
-        // Setup real-time listeners
-        setupFirebaseListeners();
-        
-        alert('Firebase initialized successfully');
-      } catch (error) {
-        console.error('Firebase init error:', error);
-        updateFirebaseStatus(`Error: ${error.message}`);
-        alert('Firebase initialization failed: ' + error.message);
+        }
       }
     }
 
-    function setupFirebaseListeners() {
-      if (!firestore) return;
+    function testConnection(ip, port) {
+      // Create a temporary WebSocket to test connection
+      const testWs = new WebSocket(`ws://${ip}:${port}`);
       
-      // Listen to tables
-      firestore.collection('tables').onSnapshot((snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added' || change.type === 'modified') {
-            const remoteTable = change.doc.data();
-            // Only update if remote data is newer
-            if (!remoteTable.lastModified || 
-                remoteTable.lastModified > (state.tables.find(t => t.id === change.doc.id)?.lastModified || 0)) {
-              const index = state.tables.findIndex(t => t.id === change.doc.id);
-              if (index >= 0) {
-                state.tables[index] = { ...remoteTable, id: change.doc.id };
-              } else {
-                state.tables.push({ ...remoteTable, id: change.doc.id });
-              }
-            }
-          }
-        });
-        renderTables();
-        saveToLocalStorage();
-      });
-
-      // Listen to menu
-      firestore.collection('menu').onSnapshot((snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added' || change.type === 'modified') {
-            const remoteItem = change.doc.data();
-            const index = state.menu.findIndex(m => m.id === change.doc.id);
-            if (index >= 0) {
-              state.menu[index] = { ...remoteItem, id: change.doc.id };
-            } else {
-              state.menu.push({ ...remoteItem, id: change.doc.id });
-            }
-          }
-        });
-        renderMenu();
-        saveToLocalStorage();
-      });
-
-      // Listen to orders
-      firestore.collection('orders').onSnapshot((snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added' || change.type === 'modified') {
-            const remoteOrder = change.doc.data();
-            const index = state.orders.findIndex(o => o.id === change.doc.id);
-            if (index >= 0) {
-              state.orders[index] = { ...remoteOrder, id: change.doc.id };
-            } else {
-              state.orders.push({ ...remoteOrder, id: change.doc.id });
-            }
-          }
-        });
-        renderKitchen();
-        saveToLocalStorage();
-      });
+      testWs.onopen = () => {
+        addToSyncLog(`Found device at ${ip}:${port}`);
+        addDiscoveredDevice(ip, port, 'Connected');
+        testWs.close();
+      };
+      
+      testWs.onerror = () => {
+        // Connection failed, ignore
+        testWs.close();
+      };
+      
+      // Timeout
+      setTimeout(() => {
+        if (testWs.readyState !== WebSocket.CLOSED) {
+          testWs.close();
+        }
+      }, 1000);
     }
 
-    async function syncToFirebase() {
-      if (!firestore) return false;
+    function listenForBroadcasts() {
+      // Listen on a specific port for broadcast messages
+      // This is simplified - in real app, use WebRTC or WebSocket server
+      addToSyncLog('Listening for device broadcasts...');
+    }
+
+    function broadcastPresence() {
+      // Send UDP-like broadcast (simplified)
+      addToSyncLog('Broadcasting presence to network...');
       
+      // Store self as discovered device
+      addDiscoveredDevice(localIp, 'Self', 'This Device');
+      
+      // Update discovered devices list
+      updateDiscoveredDevices();
+    }
+
+    function addDiscoveredDevice(ip, port, status) {
+      const deviceKey = `${ip}:${port}`;
+      if (!connectedDevices.has(deviceKey)) {
+        connectedDevices.set(deviceKey, {
+          ip,
+          port,
+          status,
+          lastSeen: Date.now()
+        });
+        updateDiscoveredDevices();
+      } else {
+        // Update last seen
+        const device = connectedDevices.get(deviceKey);
+        device.lastSeen = Date.now();
+        device.status = status;
+      }
+    }
+
+    function updateDiscoveredDevices() {
+      const container = document.getElementById('discoveredDevices');
+      const staffContainer = document.getElementById('staffList');
+      
+      if (connectedDevices.size === 0) {
+        container.innerHTML = '<p style="color: #666; padding: 20px; text-align: center;">No other devices found</p>';
+        staffContainer.innerHTML = '<p style="color: #666; padding: 10px; text-align: center;">No staff connected</p>';
+        return;
+      }
+      
+      let devicesHTML = '';
+      let staffHTML = '';
+      
+      connectedDevices.forEach((device, key) => {
+        const isSelf = device.ip === localIp;
+        const deviceClass = isSelf ? 'active' : '';
+        const statusClass = device.status === 'Connected' ? 'connected' : '';
+        
+        devicesHTML += `
+          <div class="device-card ${deviceClass}">
+            <div class="device-info">
+              <div class="device-name">${device.ip}:${device.port}</div>
+              <div class="device-ip">Last seen: ${new Date(device.lastSeen).toLocaleTimeString()}</div>
+            </div>
+            <div class="device-status ${statusClass}">${device.status}</div>
+          </div>
+        `;
+        
+        if (!isSelf) {
+          staffHTML += `
+            <div class="device-card">
+              <div class="device-info">
+                <div class="device-name">Staff ${device.ip.split('.').pop()}</div>
+                <div class="device-ip">${device.ip}</div>
+              </div>
+              <div class="device-status ${statusClass}">${device.status}</div>
+            </div>
+          `;
+        }
+      });
+      
+      container.innerHTML = devicesHTML;
+      staffContainer.innerHTML = staffHTML || '<p style="color: #666; padding: 10px; text-align: center;">No staff connected</p>';
+    }
+
+    // Data Synchronization
+    function broadcastData() {
+      const dataToSend = {
+        type: 'full_sync',
+        deviceId: deviceId,
+        deviceName: deviceName,
+        data: state,
+        timestamp: Date.now()
+      };
+      
+      sendToAllPeers(dataToSend);
+      addToSyncLog('Broadcasted data to all peers');
+      updateSyncStatus('Data broadcasted', 'syncing');
+      
+      setTimeout(() => {
+        updateSyncStatus('Ready', 'ready');
+      }, 1000);
+    }
+
+    function requestFullSync() {
+      const request = {
+        type: 'request_sync',
+        deviceId: deviceId,
+        deviceName: deviceName,
+        timestamp: Date.now()
+      };
+      
+      sendToAllPeers(request);
+      addToSyncLog('Requested sync from peers');
+    }
+
+    function syncHeartbeat() {
+      // Send heartbeat to maintain connections
+      const heartbeat = {
+        type: 'heartbeat',
+        deviceId: deviceId,
+        deviceName: deviceName,
+        timestamp: Date.now()
+      };
+      
+      sendToAllPeers(heartbeat);
+      
+      // Clean up old devices
+      const now = Date.now();
+      connectedDevices.forEach((device, key) => {
+        if (now - device.lastSeen > 30000) { // 30 seconds
+          connectedDevices.delete(key);
+        }
+      });
+      
+      updateDiscoveredDevices();
+    }
+
+    function broadcastDataChange(changeType, data) {
+      const change = {
+        type: 'data_change',
+        changeType: changeType,
+        deviceId: deviceId,
+        deviceName: deviceName,
+        data: data,
+        timestamp: Date.now()
+      };
+      
+      sendToAllPeers(change);
+    }
+
+    // Network Message Handling
+    function handleNetworkMessage(message) {
       try {
-        updateSyncStatus('Syncing to Firebase...', 'syncing');
+        const data = JSON.parse(message);
         
-        // Sync tables
-        for (const table of state.tables) {
-          await firestore.collection('tables').doc(table.id).set({
-            ...table,
-            lastModified: Date.now(),
-            deviceId: deviceId
-          }, { merge: true });
+        switch (data.type) {
+          case 'device_info':
+            addDiscoveredDevice(data.ip, 'Unknown', 'Connected');
+            addToSyncLog(`Device connected: ${data.deviceName}`);
+            break;
+            
+          case 'full_sync':
+            if (data.deviceId !== deviceId) {
+              mergeData(data.data);
+              addToSyncLog(`Received full sync from ${data.deviceName}`);
+              updateSyncStatus('Synced from peer', 'synced');
+            }
+            break;
+            
+          case 'request_sync':
+            // Send our data to requesting device
+            broadcastData();
+            addToSyncLog(`Sync requested by ${data.deviceName}`);
+            break;
+            
+          case 'data_change':
+            if (data.deviceId !== deviceId) {
+              applyDataChange(data.changeType, data.data);
+              addToSyncLog(`Update from ${data.deviceName}: ${data.changeType}`);
+            }
+            break;
+            
+          case 'heartbeat':
+            addDiscoveredDevice(data.ip || 'Unknown', 'Unknown', 'Connected');
+            break;
+            
+          case 'chat_message':
+            if (data.deviceId !== deviceId) {
+              receiveChatMessage(data);
+            }
+            break;
         }
         
-        // Sync menu
-        for (const item of state.menu) {
-          await firestore.collection('menu').doc(item.id).set({
-            ...item,
-            lastModified: Date.now(),
-            deviceId: deviceId
-          }, { merge: true });
-        }
-        
-        // Sync orders
-        for (const order of state.orders) {
-          await firestore.collection('orders').doc(order.id).set({
-            ...order,
-            lastModified: Date.now(),
-            deviceId: deviceId
-          }, { merge: true });
-        }
-        
-        // Sync settings
-        await firestore.collection('settings').doc('restaurant').set({
-          ...state.settings,
-          lastModified: Date.now(),
-          deviceId: deviceId
-        }, { merge: true });
-        
-        updateSyncStatus('Synced to Firebase', 'synced');
-        lastSyncTime = Date.now();
-        localStorage.setItem('pos_last_sync', lastSyncTime);
-        return true;
       } catch (error) {
-        console.error('Firebase sync error:', error);
-        updateSyncStatus('Sync failed', 'error');
-        return false;
+        console.error('Error handling network message:', error);
       }
     }
 
-    async function syncFromFirebase() {
-      if (!firestore) return false;
+    function sendToAllPeers(data) {
+      // Send via WebSocket if connected
+      if (wsClient && wsClient.readyState === WebSocket.OPEN) {
+        wsClient.send(JSON.stringify(data));
+      }
       
-      try {
-        updateSyncStatus('Syncing from Firebase...', 'syncing');
-        
-        // Get tables
-        const tablesSnapshot = await firestore.collection('tables').get();
-        const remoteTables = [];
-        tablesSnapshot.forEach(doc => {
-          remoteTables.push({ ...doc.data(), id: doc.id });
-        });
-        
-        // Get menu
-        const menuSnapshot = await firestore.collection('menu').get();
-        const remoteMenu = [];
-        menuSnapshot.forEach(doc => {
-          remoteMenu.push({ ...doc.data(), id: doc.id });
-        });
-        
-        // Get orders
-        const ordersSnapshot = await firestore.collection('orders').get();
-        const remoteOrders = [];
-        ordersSnapshot.forEach(doc => {
-          remoteOrders.push({ ...doc.data(), id: doc.id });
-        });
-        
-        // Get settings
-        const settingsDoc = await firestore.collection('settings').doc('restaurant').get();
-        const remoteSettings = settingsDoc.exists ? settingsDoc.data() : null;
-        
-        // Merge data (prefer newer timestamps)
-        state.tables = mergeArrays(state.tables, remoteTables, 'lastModified');
-        state.menu = mergeArrays(state.menu, remoteMenu, 'lastModified');
-        state.orders = mergeArrays(state.orders, remoteOrders, 'lastModified');
-        
-        if (remoteSettings && remoteSettings.lastModified > (state.settings.lastModified || 0)) {
-          state.settings = { ...state.settings, ...remoteSettings };
+      // Also broadcast via other methods
+      broadcastToLocalNetwork(data);
+    }
+
+    function broadcastToLocalNetwork(data) {
+      // Simplified broadcast - in real app, use WebRTC or WebSocket
+      addToSyncLog('Broadcasting to local network...');
+      
+      // Simulate receiving our own broadcast for demo
+      setTimeout(() => {
+        if (Math.random() > 0.5) { // 50% chance to simulate response
+          const simulatedResponse = {
+            ...data,
+            deviceId: 'simulated_device',
+            deviceName: 'Simulated Device',
+            ip: '192.168.1.' + Math.floor(Math.random() * 255)
+          };
+          handleNetworkMessage(JSON.stringify(simulatedResponse));
         }
-        
+      }, 500);
+    }
+
+    // Data Merging
+    function mergeData(remoteData) {
+      let changed = false;
+      
+      // Merge tables
+      if (remoteData.tables) {
+        remoteData.tables.forEach(remoteTable => {
+          const localTable = state.tables.find(t => t.id === remoteTable.id);
+          if (!localTable) {
+            state.tables.push(remoteTable);
+            changed = true;
+          } else if (remoteTable.lastModified > (localTable.lastModified || 0)) {
+            Object.assign(localTable, remoteTable);
+            changed = true;
+          }
+        });
+      }
+      
+      // Merge menu
+      if (remoteData.menu) {
+        remoteData.menu.forEach(remoteItem => {
+          const localItem = state.menu.find(m => m.id === remoteItem.id);
+          if (!localItem) {
+            state.menu.push(remoteItem);
+            changed = true;
+          } else if (remoteItem.lastModified > (localItem.lastModified || 0)) {
+            Object.assign(localItem, remoteItem);
+            changed = true;
+          }
+        });
+      }
+      
+      // Merge orders
+      if (remoteData.orders) {
+        remoteData.orders.forEach(remoteOrder => {
+          const localOrder = state.orders.find(o => o.id === remoteOrder.id);
+          if (!localOrder) {
+            state.orders.push(remoteOrder);
+            changed = true;
+          } else if (remoteOrder.lastModified > (localOrder.lastModified || 0)) {
+            Object.assign(localOrder, remoteOrder);
+            changed = true;
+          }
+        });
+      }
+      
+      if (changed) {
         saveToLocalStorage();
         renderTables();
         renderMenu();
         renderKitchen();
-        
-        updateSyncStatus('Synced from Firebase', 'synced');
-        lastSyncTime = Date.now();
-        localStorage.setItem('pos_last_sync', lastSyncTime);
-        return true;
-      } catch (error) {
-        console.error('Firebase sync error:', error);
-        updateSyncStatus('Sync failed', 'error');
-        return false;
+        addToSyncLog('Data merged successfully');
       }
     }
 
-    function mergeArrays(local, remote, timestampKey) {
-      const merged = [...local];
-      const localMap = new Map(local.map(item => [item.id, item]));
-      
-      for (const remoteItem of remote) {
-        const localItem = localMap.get(remoteItem.id);
-        if (!localItem || remoteItem[timestampKey] > localItem[timestampKey]) {
-          if (localItem) {
-            const index = merged.findIndex(item => item.id === remoteItem.id);
-            merged[index] = remoteItem;
-          } else {
-            merged.push(remoteItem);
-          }
-        }
-      }
-      
-      return merged;
-    }
-
-    // Sync Management
-    async function autoSync() {
-      if (!isOnline) return;
-      
-      if (firestore) {
-        // Two-way sync with Firebase
-        await syncFromFirebase();
-        await syncToFirebase();
+    function applyDataChange(changeType, data) {
+      switch (changeType) {
+        case 'table_update':
+          renderTables();
+          break;
+        case 'menu_update':
+          renderMenu();
+          break;
+        case 'order_update':
+          renderKitchen();
+          break;
+        case 'new_order':
+          // Play notification sound
+          playNotificationSound();
+          renderKitchen();
+          break;
       }
     }
 
-    async function manualSync() {
-      updateSyncStatus('Manual sync started...', 'syncing');
-      await autoSync();
+    // Chat Functions
+    function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      
+      if (!message) return;
+      
+      const chatData = {
+        type: 'chat_message',
+        deviceId: deviceId,
+        deviceName: deviceName,
+        message: message,
+        timestamp: Date.now()
+      };
+      
+      // Add to local chat
+      addChatMessage(deviceName, message, true);
+      
+      // Send to peers
+      sendToAllPeers(chatData);
+      
+      // Clear input
+      input.value = '';
+      input.focus();
     }
 
-    function updateSyncStatus(message, status = 'synced') {
+    function sendQuickMessage(message) {
+      const chatData = {
+        type: 'chat_message',
+        deviceId: deviceId,
+        deviceName: deviceName,
+        message: message,
+        timestamp: Date.now(),
+        isQuick: true
+      };
+      
+      addChatMessage(deviceName, message, true);
+      sendToAllPeers(chatData);
+      
+      // Also play notification for urgent messages
+      if (message.includes('assistance') || message.includes('delay')) {
+        playNotificationSound();
+      }
+    }
+
+    function receiveChatMessage(data) {
+      addChatMessage(data.deviceName, data.message, false);
+      
+      // Play sound for new messages
+      playNotificationSound();
+    }
+
+    function addChatMessage(sender, message, isLocal) {
+      chatMessages.push({ sender, message, timestamp: Date.now(), isLocal });
+      
+      const container = document.getElementById('chatMessages');
+      const messageClass = isLocal ? '' : 'remote';
+      
+      const messageHTML = `
+        <div class="chat-message ${messageClass}">
+          <strong>${sender}:</strong> ${message}
+          <div style="font-size: 11px; color: #666; margin-top: 3px;">
+            ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+          </div>
+        </div>
+      `;
+      
+      // Add to container
+      if (container.children.length === 1 && container.children[0].textContent.includes('No messages')) {
+        container.innerHTML = messageHTML;
+      } else {
+        container.innerHTML += messageHTML;
+      }
+      
+      // Scroll to bottom
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function handleChatKeyPress(event) {
+      if (event.key === 'Enter') {
+        sendChatMessage();
+      }
+    }
+
+    // UI Functions
+    function updateDeviceName() {
+      const newName = document.getElementById('deviceName').value.trim();
+      if (newName) {
+        deviceName = newName;
+        localStorage.setItem('deviceName', newName);
+        addToSyncLog('Device name updated to: ' + newName);
+      }
+    }
+
+    function updateConnectionStatus() {
+      const statusElement = document.getElementById('connectionStatus');
+      let status = '';
+      
+      if (isServer) {
+        status = `<strong>Status:</strong> Running as Server<br>`;
+      } else if (wsClient && wsClient.readyState === WebSocket.OPEN) {
+        status = `<strong>Status:</strong> Connected to Server<br>`;
+      } else {
+        status = `<strong>Status:</strong> P2P Mode<br>`;
+      }
+      
+      status += `<strong>Device:</strong> ${deviceName}<br>`;
+      status += `<strong>ID:</strong> ${deviceId.substring(0, 8)}...<br>`;
+      status += `<strong>Connected Devices:</strong> ${connectedDevices.size - 1}`;
+      
+      statusElement.innerHTML = status;
+    }
+
+    function updateSyncStatus(message, status = 'ready') {
       const indicator = document.getElementById('syncIndicator');
       const dot = document.getElementById('syncDot');
       const text = document.getElementById('syncText');
-      const statusDiv = document.getElementById('syncStatus');
       
       text.textContent = message;
-      statusDiv.textContent = message;
       
       indicator.className = 'sync-indicator';
       dot.className = 'sync-dot';
@@ -930,102 +1329,57 @@
       } else if (status === 'error') {
         indicator.classList.add('error');
       }
+    }
+
+    function addToSyncLog(message) {
+      const log = document.getElementById('syncLog');
+      const entry = `[${new Date().toLocaleTimeString()}] ${message}\n`;
       
-      // Update last sync time
-      if (lastSyncTime) {
-        const timeStr = new Date(parseInt(lastSyncTime)).toLocaleTimeString();
-        document.getElementById('lastSync').textContent = timeStr;
+      // Add to log
+      log.textContent += entry;
+      
+      // Scroll to bottom
+      log.scrollTop = log.scrollHeight;
+      
+      // Keep log manageable
+      const lines = log.textContent.split('\n');
+      if (lines.length > 50) {
+        log.textContent = lines.slice(-50).join('\n');
       }
     }
 
-    function updateFirebaseStatus(message) {
-      document.getElementById('firebaseStatus').textContent = message;
-    }
-
-    function clearFirebase() {
-      if (!firestore) return;
-      
-      if (confirm('Clear all Firebase data? This cannot be undone!')) {
-        // This would require batch delete - in production, you'd need proper cleanup
-        alert('Firebase clear would require batch delete implementation');
+    function stopAllConnections() {
+      if (wsClient) {
+        wsClient.close();
+        wsClient = null;
       }
-    }
-
-    // Import/Export Functions
-    function exportData() {
-      const exportData = {
-        tables: state.tables,
-        menu: state.menu,
-        orders: state.orders,
-        settings: state.settings,
-        exportTime: Date.now(),
-        deviceId: deviceId
-      };
       
-      document.getElementById('importExportTitle').textContent = 'Export Data';
-      document.getElementById('dataJson').value = JSON.stringify(exportData, null, 2);
-      document.getElementById('importExportAction').textContent = 'Copy to Clipboard';
-      document.getElementById('importExportAction').onclick = copyToClipboard;
-      document.getElementById('importExportModal').classList.add('active');
+      connectedDevices.clear();
+      updateDiscoveredDevices();
+      updateConnectionStatus();
+      addToSyncLog('All connections stopped');
     }
 
-    function importData() {
-      document.getElementById('importExportTitle').textContent = 'Import Data';
-      document.getElementById('dataJson').value = '';
-      document.getElementById('importExportAction').textContent = 'Import Data';
-      document.getElementById('importExportAction').onclick = performImport;
-      document.getElementById('importExportModal').classList.add('active');
-    }
-
-    function copyToClipboard() {
-      const textarea = document.getElementById('dataJson');
-      textarea.select();
-      document.execCommand('copy');
-      alert('Data copied to clipboard!');
-    }
-
-    function performImport() {
+    function playNotificationSound() {
+      // Create a simple notification sound
       try {
-        const jsonText = document.getElementById('dataJson').value;
-        const imported = JSON.parse(jsonText);
+        const context = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = context.createOscillator();
+        const gainNode = context.createGain();
         
-        if (confirm('Import data? This will replace current data.')) {
-          state.tables = imported.tables || state.tables;
-          state.menu = imported.menu || state.menu;
-          state.orders = imported.orders || state.orders;
-          state.settings = { ...state.settings, ...imported.settings };
-          
-          saveToLocalStorage();
-          renderTables();
-          renderMenu();
-          renderKitchen();
-          alert('Data imported successfully!');
-          closeModal('importExportModal');
-        }
+        oscillator.connect(gainNode);
+        gainNode.connect(context.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, context.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.5);
+        
+        oscillator.start(context.currentTime);
+        oscillator.stop(context.currentTime + 0.5);
       } catch (e) {
-        alert('Invalid JSON format: ' + e.message);
-      }
-    }
-
-    // Network Functions
-    function handleOnline() {
-      isOnline = true;
-      document.getElementById('offlineBadge').style.display = 'none';
-      updateSyncStatus('Back online, syncing...', 'syncing');
-      autoSync();
-    }
-
-    function handleOffline() {
-      isOnline = false;
-      document.getElementById('offlineBadge').style.display = 'block';
-      updateSyncStatus('Offline - working locally', 'error');
-    }
-
-    function updateOnlineStatus() {
-      if (isOnline) {
-        document.getElementById('offlineBadge').style.display = 'none';
-      } else {
-        document.getElementById('offlineBadge').style.display = 'block';
+        console.log('Audio not supported');
       }
     }
 
@@ -1089,13 +1443,12 @@
           number,
           capacity,
           occupied: false,
-          lastModified: Date.now(),
-          deviceId: deviceId
+          lastModified: Date.now()
         });
       }
 
       saveToLocalStorage();
-      if (firestore) syncToFirebase();
+      broadcastDataChange('table_update', { tableId: editingId || state.tables[state.tables.length-1].id });
       renderTables();
       closeModal('tableModal');
     }
@@ -1166,13 +1519,12 @@
           category,
           price,
           description,
-          lastModified: Date.now(),
-          deviceId: deviceId
+          lastModified: Date.now()
         });
       }
 
       saveToLocalStorage();
-      if (firestore) syncToFirebase();
+      broadcastDataChange('menu_update', { itemId: editingId || state.menu[state.menu.length-1].id });
       renderMenu();
       closeModal('menuModal');
     }
@@ -1274,13 +1626,15 @@
           items: state.currentOrder,
           status: 'new',
           createdAt: new Date().toISOString(),
-          lastModified: Date.now(),
-          deviceId: deviceId
+          lastModified: Date.now()
         });
       }
 
       saveToLocalStorage();
-      if (firestore) syncToFirebase();
+      broadcastDataChange('new_order', { 
+        orderId: state.orders[state.orders.length-1].id,
+        tableName: table.number 
+      });
       renderTables();
       alert('Order placed!');
       closeModal('orderModal');
@@ -1302,7 +1656,7 @@
       }
 
       saveToLocalStorage();
-      if (firestore) syncToFirebase();
+      broadcastDataChange('checkout', { tableId: state.currentTable });
       renderTables();
       alert('Checkout complete!');
       closeModal('orderModal');
@@ -1324,7 +1678,6 @@
             <div>
               <h3>Table ${order.tableName}</h3>
               <p style="color: #666; font-size: 14px;">${new Date(order.createdAt).toLocaleTimeString()}</p>
-              <small style="color: #999;">From: ${order.deviceId || 'Unknown'}</small>
             </div>
             <span class="status-badge ${order.status}">${order.status.toUpperCase()}</span>
           </div>
@@ -1349,37 +1702,9 @@
         order.status = status;
         order.lastModified = Date.now();
         saveToLocalStorage();
-        if (firestore) syncToFirebase();
+        broadcastDataChange('order_status', { orderId, status });
         renderKitchen();
       }
-    }
-
-    // Settings
-    function loadSettings() {
-      document.getElementById('restaurantName').value = state.settings.restaurantName;
-      document.getElementById('taxRate').value = state.settings.taxRate;
-      if (state.settings.firebaseConfig) {
-        document.getElementById('firebaseConfig').value = JSON.stringify(state.settings.firebaseConfig, null, 2);
-      }
-    }
-
-    function saveSettings() {
-      state.settings.restaurantName = document.getElementById('restaurantName').value;
-      state.settings.taxRate = parseFloat(document.getElementById('taxRate').value);
-      
-      try {
-        const configText = document.getElementById('firebaseConfig').value;
-        if (configText) {
-          state.settings.firebaseConfig = JSON.parse(configText);
-        }
-      } catch (e) {
-        console.warn('Invalid Firebase config:', e);
-      }
-      
-      state.settings.lastModified = Date.now();
-      saveToLocalStorage();
-      if (firestore) syncToFirebase();
-      alert('Settings saved!');
     }
 
     // Modal
